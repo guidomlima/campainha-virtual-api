@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Campainha Virtual</title>
+    </head>
+    <body>
+        <h1>Listas</h1>
+        <hr>
+        <h3>Usuarios</h3>
+        <table border = "1">
+            <tr>
+                <td>ID</td>
+                <td>IP</td>
+                <td>Senha</td>
+                <td></td>
+                <td></td>
+            </tr>
+            {% for usuario in usuarios %}
+            <tr>
+                <td>{{ usuario._id}}</td>
+                <td>{{ usuario.ip}}</td>
+                <td ><div style="width:300px; overflow:hidden;">{{ usuario.senha_hash}}</div></td>
+                <td><a href="/excluirUsuario/{{usuario._id}}">Excluir</a></td>
+                <td><a href="/atualizarUsuario/{{usuario._id}}">Atualizar</a></td>
+            </tr>
+            {% endfor %}
+        </table>
+        <br>
+
+        <h3>Cameras</h3>
+        <table border = "1">
+            <tr>
+                <td>ID</td>
+                <td>IP</td>
+                <td>Descrição</td>
+            </tr>
+            {% for camera in cameras %}
+            <tr>
+                <td>{{ camera._id}}</td>
+                <td>{{ camera.ip}}</td>
+                <td>{{ camera.descricao}}</td>
+                <td><a href="/excluirCamera/{{camera._id}}">Excluir</a></td>
+                <td><a href="/atualizarCamera/{{camera._id}}">Atualizar</a></td>
+            </tr>
+            {% endfor %}
+        </table>
+        <br>
+
+        <h3>Notificações</h3>
+        <table border = "1">
+            <tr>
+                <td>ID</td>
+                <td>Data e Hora</td>
+                <td>Status</td>
+                <td></td>
+            </tr>
+            {% for notificacao in notificacoes %}
+            <tr>
+                <td>{{ notificacao._id}}</td>
+                <td>{{ notificacao.dataehora}}</td>
+                <td>{{ notificacao.status}}</td>
+                <td><a href="/excluirNotificacao/{{notificacao._id}}">Excluir</a></td>
+                <td><a href="/atualizarNotificacao/{{notificacao._id}}">Atualizar</a></td>
+            </tr>
+            {% endfor %}
+        </table>
+        <br>
+
+        <h3>GPIO</h3>
+        <table border = "1">
+            <tr>
+                <td>ID</td>
+                <td>Pin</td>
+                <td>Status</td>
+                <td></td>
+            </tr>
+            {% for gpio in gpios %}
+            <tr>
+                <td>{{ gpio._id}}</td>
+                <td>{{ gpio.pin}}</td>
+                <td>{{ gpio.status}}</td>
+                <td><a href="/excluirGpio/{{gpio._id}}">Excluir</a></td>
+                <td><a href="/atualizarGpio/{{gpio._id}}">Atualizar</a></td>
+            </tr>
+            {% endfor %}
+        </table>
+        <br>
+
+        <a href="{{url_for('index')}}">Voltar</a>
+    </body>
+</html>

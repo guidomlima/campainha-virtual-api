@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Campainha Virtual</title>
+    </head>
+    <body>
+        <h1>Usuario</h1>
+        <hr>
+        <form action="" method="POST">
+            <table>
+                <tr>
+                    <td>Endereço Campainha</td>
+                    <td><input type="text" name="ip" value="{{usuario.ip}}"></td>
+                    <td>Senha</td>
+                    <td><input type="password" name="senha"></td>
+                </tr>
+
+            </table>
+            <input type="submit" value="Atualizar">
+            <br>
+        </form>
+        <br>
+
+        <br><br><br>
+        <a href="{{url_for('index')}}">Voltar</a>
+
+    </body>
+</html>
