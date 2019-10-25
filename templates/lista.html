@@ -11,7 +11,7 @@
         <table border = "1">
             <tr>
                 <td>ID</td>
-                <td>IP</td>
+                <td>Nome de usuário</td>
                 <td>Senha</td>
                 <td></td>
                 <td></td>
@@ -19,7 +19,7 @@
             {% for usuario in usuarios %}
             <tr>
                 <td>{{ usuario._id}}</td>
-                <td>{{ usuario.ip}}</td>
+                <td>{{ usuario.nome}}</td>
                 <td ><div style="width:300px; overflow:hidden;">{{ usuario.senha_hash}}</div></td>
                 <td><a href="/excluirUsuario/{{usuario._id}}">Excluir</a></td>
                 <td><a href="/atualizarUsuario/{{usuario._id}}">Atualizar</a></td>
