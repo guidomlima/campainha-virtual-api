@@ -2,12 +2,15 @@
 from flask import Flask, render_template, request, url_for, redirect, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.shared_data import SharedDataMiddleware
 import datetime
+import urllib.request
 
 #app = Flask(__name__)
 app = Flask("campainha-virtual-api")
 app.config['SQLALCHEMY_DATABASE_URI']='sqlite:///db.sqlite'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['UPLOAD_FOLDER'] = '/media_files'
 
 db = SQLAlchemy(app)
 
@@ -56,7 +59,7 @@ class Camera(db.Model):
 class Notificacao(db.Model):
     __tablename__ = 'notificacao'
     _id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    dataehora = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    dataehora = db.Column(db.DateTime, default=datetime.datetime.now)
     status = db.Column(db.String)
 
     def __init__(self, status):
@@ -232,6 +235,12 @@ def remover_camera(id):
 
 #########  fim da api rest #########
 
+app.add_url_rule('/uploads/<filename>', 'uploaded_file',
+                 build_only=True)
+app.wsgi_app = SharedDataMiddleware(app.wsgi_app, {
+    '/uploads':  app.config['UPLOAD_FOLDER']
+})
+
 @app.route("/index")
 def index():
     return render_template("index.html")
@@ -394,7 +403,15 @@ def atualizarGpio(id):
             return redirect(url_for("lista"))
 
     return render_template("atualizarGpio.html", gpio=gpio)
+    
+@app.route("/imagem")
+def baixarImagem():
+    endereco='http://192.168.15.2:8080/shot.jpg'
+    with urllib.request.urlopen(endereco) as url:
+        with open('static/temp.jpg','wb') as f:
+            f.write(url.read())
+    return redirect(url_for('static', filename='temp.jpg'))
 
 #remover debug e use_reloader para deploy
 if __name__ == "__main__":
-    app.run(debug=True,  use_reloader=True)
+    app.run(host='0.0.0.0', debug=True,  use_reloader=True)
