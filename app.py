@@ -10,7 +10,6 @@ import urllib.request
 app = Flask("campainha-virtual-api")
 app.config['SQLALCHEMY_DATABASE_URI']='sqlite:///db.sqlite'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = '/media_files'
 
 db = SQLAlchemy(app)
 
@@ -86,9 +85,9 @@ class Gpio(db.Model):
     pin = db.Column(db.Integer, unique=True)
     status = db.Column(db.Integer)
 
-    def __init__(self, pin):
+    def __init__(self, pin, status):
         self.pin = pin
-        self.status = 0
+        self.status = status
 
     @property
     def serialize(self):
@@ -97,7 +96,6 @@ class Gpio(db.Model):
             'pin': self.pin,
             'status': self.status,
         }
-
 
 db.create_all()
 
@@ -193,33 +191,40 @@ def cadastrar_notificacao():
     db.session.commit()
     return data, 201
 
-@app.route("/camera/<string:descricao>", methods=['PUT'])
-def atualizar_camera(descricao):
-    camera = Camera.query.filter_by(descricao=descricao).first()
+@app.route("/camera", methods=['PUT'])
+def atualizar_camera():
+    data = request.get_json()
+    jCamera = Camera(**data)
+    camera = Camera.query.filter_by(descricao=jCamera.descricao).first()
     if not camera:
         json_list=[{'message': 'Não há câmera com essa descrição'}]
         return jsonify(json_list), 404
-    camera.ip=request.get_json().get('ip')
+    #camera.ip=request.get_json().get('ip')
+    camera.ip=jCamera.ip
     db.session.commit()
     return listar_cameras()
 
-@app.route("/notificacao/<int:id>", methods=['PUT'])
-def atualizar_notificacao(id):
-    notificacao = Notificacao.query.filter_by(_id=id).first()
+@app.route("/notificacao", methods=['PUT'])
+def atualizar_notificacao():
+    data = request.get_json()
+    jNotificacao = Notificacao(**data)
+    notificacao = Notificacao.query.filter_by(_id=jNotificacao._id).first()
     if not notificacao:
         json_list=[{'message': 'Não há notificacao com esse id'}]
         return jsonify(json_list), 404
-    notificacao.status=request.get_json().get('status')
+    notificacao.status=jNotificacao.status
     db.session.commit()
     return jsonify(notificacao), 200
 
-@app.route("/gpio/<int:pin>", methods=['PUT'])
-def atualizar_gpio(pin):
-    gpio = Gpio.query.filter_by(pin=pin).first()
+@app.route("/gpio", methods=['PUT'])
+def atualizar_gpio():
+    data = request.get_json()
+    jGpio = Gpio(**data)
+    gpio = Gpio.query.filter_by(pin=jGpio.pin).first()
     if not gpio:
-        json_list=[{'message': 'Não há gpio com esse id'}]
+        json_list=[{'message': 'Não há gpio com esse pin'}]
         return jsonify(json_list), 404
-    gpio.status=request.get_json().get('status')
+    gpio.status=jGpio.status
     db.session.commit()
     return jsonify(gpio), 200
 
@@ -234,12 +239,6 @@ def remover_camera(id):
     return jsonify({'message': 'Câmera removida'}), 200
 
 #########  fim da api rest #########
-
-app.add_url_rule('/uploads/<filename>', 'uploaded_file',
-                 build_only=True)
-app.wsgi_app = SharedDataMiddleware(app.wsgi_app, {
-    '/uploads':  app.config['UPLOAD_FOLDER']
-})
 
 @app.route("/index")
 def index():
@@ -376,7 +375,7 @@ def cadastroGpio():
     if request.method == "POST":
         pin = request.form.get("pin")
 
-        if pin:
+        if pin and status:
             g = Gpio(pin)
             db.session.add(g)
             db.session.commit()
@@ -395,10 +394,8 @@ def atualizarGpio(id):
     gpio = Gpio.query.filter_by(_id=id).first()
     if request.method == "POST":
         status = request.form.get("status")
-
         if status:
             gpio.status = status
-
             db.session.commit()
             return redirect(url_for("lista"))
 
