@@ -1,17 +1,21 @@
 #coding:utf-8
-from flask import Flask, render_template, request, url_for, redirect, jsonify
+from flask import Flask, render_template, request, url_for, redirect, jsonify, send_from_directory, send_file
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.shared_data import SharedDataMiddleware
-import datetime
+import datetime, os
 import urllib.request
 
 #app = Flask(__name__)
 app = Flask("campainha-virtual-api")
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+
 app.config['SQLALCHEMY_DATABASE_URI']='sqlite:///db.sqlite'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 db = SQLAlchemy(app)
+
+PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
+app.config['MEDIA_ROOT'] = os.path.join(PROJECT_ROOT, 'media')
 
 def converter_datetime(value):
     #Converte datetime object em string para processamento JSON
@@ -61,7 +65,8 @@ class Notificacao(db.Model):
     dataehora = db.Column(db.DateTime, default=datetime.datetime.now)
     status = db.Column(db.String)
 
-    def __init__(self, status):
+    def __init__(self, dataehora, status):
+        self.dataehora = dataehora
         self.status = status
 
     #usar marshmallow para serialização complexas
@@ -202,19 +207,22 @@ def atualizar_camera():
     #camera.ip=request.get_json().get('ip')
     camera.ip=jCamera.ip
     db.session.commit()
-    return listar_cameras()
+    json_list=[{'message': 'Atualizado com sucesso'}]
+    return jsonify(json_list), 200
 
 @app.route("/notificacao", methods=['PUT'])
 def atualizar_notificacao():
     data = request.get_json()
     jNotificacao = Notificacao(**data)
-    notificacao = Notificacao.query.filter_by(_id=jNotificacao._id).first()
+    notificacao = Notificacao.query.first()
     if not notificacao:
-        json_list=[{'message': 'Não há notificacao com esse id'}]
+        json_list=[{'message': 'Não há notificação criada'}]
         return jsonify(json_list), 404
     notificacao.status=jNotificacao.status
+    notificacao.dataehora=datetime.datetime.now()
     db.session.commit()
-    return jsonify(notificacao), 200
+    json_list=[{'message': 'Atualizado com sucesso'}]
+    return jsonify(json_list), 200
 
 @app.route("/gpio", methods=['PUT'])
 def atualizar_gpio():
@@ -226,7 +234,8 @@ def atualizar_gpio():
         return jsonify(json_list), 404
     gpio.status=jGpio.status
     db.session.commit()
-    return jsonify(gpio), 200
+    json_list=[{'message': 'Atualizado com sucesso'}]
+    return jsonify(json_list), 200
 
 @app.route("/camera/<int:id>", methods=['DELETE'])
 def remover_camera(id):
@@ -361,10 +370,9 @@ def atualizarNotificacao(id):
     notificacao = Notificacao.query.filter_by(_id=id).first()
     if request.method == "POST":
         status = request.form.get("status")
-
         if status:
+            notificacao.dataehora=datetime.datetime.now()
             notificacao.status=status
-
             db.session.commit()
             return redirect(url_for("lista"))
 
@@ -405,9 +413,9 @@ def atualizarGpio(id):
 def baixarImagem():
     endereco='http://192.168.15.2:8080/shot.jpg'
     with urllib.request.urlopen(endereco) as url:
-        with open('static/temp.jpg','wb') as f:
+        with open('media/temp.jpg','wb') as f:
             f.write(url.read())
-    return redirect(url_for('static', filename='temp.jpg'))
+    return send_from_directory(app.config.get('MEDIA_ROOT'), 'temp.jpg')
 
 #remover debug e use_reloader para deploy
 if __name__ == "__main__":
