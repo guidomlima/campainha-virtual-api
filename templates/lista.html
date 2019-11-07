@@ -18,9 +18,9 @@
             </tr>
             {% for usuario in usuarios %}
             <tr>
-                <td>{{ usuario._id}}</td>
-                <td>{{ usuario.nome}}</td>
-                <td ><div style="width:300px; overflow:hidden;">{{ usuario.senha_hash}}</div></td>
+                <td>{{ usuario.public_id}}</td>
+                <td>{{ usuario.username}}</td>
+                <td ><div style="width:300px; overflow:hidden;">{{ usuario.password}}</div></td>
                 <td><a href="/excluirUsuario/{{usuario._id}}">Excluir</a></td>
                 <td><a href="/atualizarUsuario/{{usuario._id}}">Atualizar</a></td>
             </tr>
