@@ -1,8 +1,7 @@
 #coding:utf-8
-from flask import Flask, render_template, request, url_for, redirect, jsonify, send_from_directory, send_file
+from flask import Flask, render_template, request, url_for, redirect, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.middleware.shared_data import SharedDataMiddleware
 import datetime, os
 import urllib.request
 
@@ -380,7 +379,7 @@ def cadastroGpio():
     if request.method == "POST":
         pin = request.form.get("pin")
 
-        if pin and status:
+        if pin:
             g = Gpio(pin)
             db.session.add(g)
             db.session.commit()

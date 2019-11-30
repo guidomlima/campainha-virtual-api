@@ -1,14 +1,7 @@
-<!DOCTYPE html>
-<html>
-    <head>
-        <meta charset="utf-8">
-        <title>Campainha Virtual</title>
-    </head>
-    <body>
+{% extends 'base.html' %}
+{% block content %}
         <h1>Configurações</h1>
         <hr>
         <a href="{{url_for('cadastrar')}}">Cadastros</a>
         <a href="{{url_for('lista')}}">Listas</a>
-
-    </body>
-</html>
+{% endblock %}

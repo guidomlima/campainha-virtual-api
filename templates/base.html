@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+    <head>
+        <meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <title>Campainha Virtual</title>
+	<link rel="stylesheet" href="{{ url_for('static', filename="css/bootstrap.min.css") }}">
+    </head>
+    <body>
+
+	<div class="container">
+ 		<div class="header clearfix">
+			<nav><ul class="nav nav-pills pull-right">
+				<li role="presentation" class="active"><a href="#">Home</a></li>
+				<li role="presentation"><a href="#">About</a></li>
+			</ul></nav>
+			<h3 class="text-muted">Campainha Virtual</h3>
+		</div>
+
+        {% block content %}
+	{% endblock %}
+
+	<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"></script>
+	<script src="{{ url_for('static',
+	filename="js/bootstrap.min.js") }}"></script>
+    </body>
+</html>

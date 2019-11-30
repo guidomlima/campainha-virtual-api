@@ -1,15 +1,17 @@
-#coding:utf-8
+# coding:utf-8
 from flask import Flask, render_template, request, url_for,\
     redirect, jsonify, make_response, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
+from flask_wtf import FlaskForm
+# from flask_wtf import Form
+from wtforms import StringField, PasswordField, BooleanField
+from wtforms.validators import DataRequired
 from werkzeug.security import generate_password_hash,\
     check_password_hash
 from functools import wraps
-import datetime, uuid, jwt, time
-import constants as USER
+import datetime, uuid, jwt, subprocess
 import urllib.request
 
-#app = Flask(__name__)
 app = Flask("campainha-virtual-api")
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
@@ -17,16 +19,15 @@ app.config['SQLALCHEMY_DATABASE_URI']='sqlite:///db.sqlite'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'campainha-secret'
 
-app.config['CSRF_ENABLED'] = True
-app.config['CSRF_SESSION_KEY'] = 'SOMETHING_IMPOSSIBLE_TO_GUEES'
-
 db = SQLAlchemy(app)
 
+
 def converter_datetime(value):
-    #Converte datetime object em string para processamento JSON
+    # Converte datetime object em string para processamento JSON
     if value is None:
         return None
     return [value.strftime("%Y-%m-%d"), value.strftime("%H:%M:%S")]
+
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -34,8 +35,15 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True)
     password = db.Column(db.String(80))
     admin = db.Column(db.Boolean)
-    role = db.Column(db.SmallInteger, default=USER.USER)
-    status = db.Column(db.SmallInteger, default=USER.NEW)
+
+    @property
+    def serialize(self):
+        return {
+            'username' : self.username,
+            'password': self.password,
+            'admin': self.admin,
+        }
+
 
 def token_required(f):
     @wraps(f)
@@ -53,6 +61,7 @@ def token_required(f):
 
         return f(current_user, *args, **kwargs)
     return decorated
+
 
 @app.route('/user', methods=['GET'])
 @token_required
@@ -72,6 +81,7 @@ def get_all_users(current_user):
         output.append(user_data)
     return jsonify(output)
 
+
 @app.route('/user/<public_id>', methods=['GET'])
 @token_required
 def get_one_user(current_user, public_id):
@@ -88,6 +98,7 @@ def get_one_user(current_user, public_id):
     user_data['admin'] = user.admin
     return jsonify(user_data)
 
+
 @app.route('/user', methods=['POST'])
 @token_required
 def create_user(current_user):
@@ -100,6 +111,7 @@ def create_user(current_user):
     db.session.add(new_user)
     db.session.commit()
     return jsonify({'message': 'New user created'})
+
 
 @app.route('/user/<public_id>', methods=['PUT'])
 @token_required
@@ -116,6 +128,7 @@ def upgrade_user(current_user, public_id):
     db.session.commit()
     return jsonify({'message': 'The user has been updated'})
 
+
 @app.route('/user/<public_id>', methods=['DELETE'])
 @token_required
 def delete_user(current_user, public_id):
@@ -128,6 +141,7 @@ def delete_user(current_user, public_id):
     db.session.delete(user)
     db.session.commit()
     return jsonify({'message': 'The user has been deleted'})
+
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -147,6 +161,7 @@ def login():
 
     return make_response('Could not verify', 401, {'WWW-Authenticate': 'Basic realm="Login required"'})
 
+
 @app.route('/login/<token>', methods=['GET'])
 def current_user(token):
     if not token:
@@ -162,25 +177,6 @@ def current_user(token):
     return jsonify(user_data)
 
 
-'''
-class Usuario(db.Model):
-    __tablename__='usuario'
-    _id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    nome = db.Column(db.String, unique=True)
-    senha_hash = db.Column(db.String)
-
-    def __init__(self, nome, senha):
-        self.nome = nome
-        self.senha_hash = generate_password_hash(senha)
-
-    @property
-    def serialize(self):
-        return {
-            'id': self._id,
-            'nome': self.nome,
-            'senha_hash': self.senha_hash
-        }
-'''
 class Camera(db.Model):
     __tablename__ = 'camera'
     _id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -199,6 +195,7 @@ class Camera(db.Model):
             'descricao': self.descricao
         }
 
+
 class Notificacao(db.Model):
     __tablename__ = 'notificacao'
     _id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -208,20 +205,14 @@ class Notificacao(db.Model):
     def __init__(self, status):
         self.status = status
 
-    #usar marshmallow para serialização complexas
     @property
     def serialize(self):
         return {
-            '_id' : self._id,
+            'id' : self._id,
             'dataehora': converter_datetime(self.dataehora),
             'status': self.status,
-            # Exemplo de muitos para muitos
-            #'many2many': self.serialize_many2many
         }
 
-    #@property
-    #def serialize_many2many(self):
-    #    return [item.serialize for item in self.many2many]
 
 class Gpio(db.Model):
     __tablename__ = 'gpio'
@@ -229,48 +220,48 @@ class Gpio(db.Model):
     pin = db.Column(db.Integer, unique=True)
     status = db.Column(db.Integer)
 
-    def __init__(self, pin):
+    def __init__(self, pin, status):
         self.pin = pin
-        self.status = 0
+        self.status = status
 
     @property
     def serialize(self):
         return {
-            '_id': self._id,
+            'id': self._id,
             'pin': self.pin,
             'status': self.status,
         }
 
-db.create_all()
-user = User.query.filter_by(username='admin').first()
-if not user:
-    hashed_password = generate_password_hash('admin', method='sha256')
-    new_user = User(public_id=str(uuid.uuid4()), username='admin', password=hashed_password, admin=True)
-    db.session.add(new_user)
-    db.session.commit()
+class LoginForm(FlaskForm):
+    username = StringField("username", validators=[DataRequired()])
+    password = PasswordField("password", validators=[DataRequired()])
+    remember_me = BooleanField("remember_me")
 
-'''
-@app.route('/', methods=['GET'])
-def home():
-    lista_usuario = Usuario.query.all()
-    if not lista_usuario:
-        json_list=[{'message': 'Acesse 127.0.0.1:5000/index e cadastre um novo usuário'}]
-        return jsonify(json_list), 206
-    return jsonify([usuario.serialize for usuario in lista_usuario]), 200
+def inicializar():
+    db.create_all()
+    userTeste = User.query.filter_by(username='admin').first()
+    if not userTeste:
+        hashed_password = generate_password_hash('admin', method='sha256')
+        new_user = User(public_id=str(uuid.uuid4()), username='admin', password=hashed_password, admin=True)
+        db.session.add(new_user)
+        db.session.commit()
 
-@app.route("/senha/<string:senha>", methods=['GET'])
-def senha(senha):
-    lista_usuario = Usuario.query.all()
-    if not lista_usuario:
-        json_list=[{'message': 'Acesse 127.0.0.1:5000/index e cadastre um novo usuário'}]
-        return jsonify(json_list), 206
-    json_list=[usuario.serialize for usuario in lista_usuario if check_password_hash(usuario.senha_hash, senha)]
-    if not json_list:
-        json_list=[{'message': 'Senha inválida!'}]
-        return jsonify(json_list), 404
-    json_list=[{'message': 'Usuário aceito'}]    
-    return jsonify(json_list), 200
-'''
+    gpioTeste = Gpio.query.filter_by(pin=18).first()
+    if not gpioTeste:
+        new_gpio = Gpio(18)
+        db.session.add(new_gpio)
+        db.session.commit()
+
+    notificacaoTeste = Notificacao.query.first()
+    if not notificacaoTeste:
+        new_notificacao = Notificacao("encerrada")
+        db.session.add(new_notificacao)
+        db.session.commit()
+
+
+inicializar()
+
+
 @token_required
 @app.route('/camera', methods=['GET'])
 def listar_cameras():
@@ -280,6 +271,7 @@ def listar_cameras():
         return jsonify(json_list), 206
     return jsonify([camera.serialize for camera in lista_cameras]), 200
 
+# não está em uso
 @app.route("/camera/<string:descricao>", methods=['GET'])
 def procura_camera(descricao):
     camera = Camera.query.filter_by(descricao=descricao).first()
@@ -287,11 +279,12 @@ def procura_camera(descricao):
         json_list=[{'message': 'Não há câmera com essa descrição'}]
         return jsonify(json_list), 206
     json_list=[{
-            '_id': camera._id,
+            'id': camera._id,
             'ip': camera.ip,
             'descricao': camera.descricao,
         }]
     return jsonify(json_list), 200
+
 
 @app.route("/notificacao/<string:status>", methods=['GET'])
 def procura_notificacao(status):
@@ -300,11 +293,12 @@ def procura_notificacao(status):
         json_list=[{'message': 'Não há notificacao com esse status'}]
         return jsonify(json_list), 206
     json_list={
-            '_id': notificacao._id,
+            'id': notificacao._id,
             'dataehora': notificacao.dataehora,
             'status': notificacao.status,
         }
     return jsonify(json_list), 200
+
 
 @app.route('/gpio', methods=['GET'])
 def listar_gpio():
@@ -314,6 +308,7 @@ def listar_gpio():
         return jsonify(json_list), 206
     return jsonify([gpio.serialize for gpio in lista_gpio]), 200
 
+
 @app.route("/gpio/<int:pin>", methods=['GET'])
 def procura_gpio(pin):
     gpio = Gpio.query.filter_by(pin=pin).first()
@@ -321,11 +316,12 @@ def procura_gpio(pin):
         json_list=[{'message': 'GPIO não encontrado'}]
         return jsonify(json_list), 206
     json_list=[{
-            '_id': gpio._id,
+            'id': gpio._id,
             'pin': gpio.pin,
             'status': gpio.status,
         }]
     return jsonify(json_list), 200
+
 
 @app.route("/camera", methods=['POST'])
 def cadastrar_camera():
@@ -335,6 +331,7 @@ def cadastrar_camera():
     db.session.commit()
     return data, 201
 
+
 @app.route("/notificacao", methods=['POST'])
 def cadastrar_notificacao():
     data = request.get_json()
@@ -342,6 +339,7 @@ def cadastrar_notificacao():
     db.session.add(notificacao)
     db.session.commit()
     return data, 201
+
 
 @app.route("/camera/", methods=['PUT'])
 def atualizar_camera(descricao):
@@ -356,6 +354,7 @@ def atualizar_camera(descricao):
     json_list=[{'message': 'Atualizado com sucesso'}]
     return jsonify(json_list), 200
 
+
 @app.route("/notificacao/<string:status>", methods=['PUT'])
 def atualizar_notificacao(status):
     data = request.get_json()
@@ -367,20 +366,25 @@ def atualizar_notificacao(status):
     notificacao.status=jNotificacao.status
     notificacao.dataehora=datetime.datetime.now()
     db.session.commit()
-    json_list=[{'message': 'Atualizado com sucesso'}]
-    return jsonify(notificacao), 200
+    json_list=[{
+            'dataehora': notificacao.dataehora,
+            'status': notificacao.status,
+        }]
+    return jsonify(json_list), 200
 
-@app.route("/gpio", methods=['PUT'])
+
+@app.route("/gpio/<int:pin>", methods=['PUT'])
 def atualizar_gpio(pin):
     data = request.get_json()
     jGpio = Gpio(**data)
-    gpio = Gpio.query.filter_by(pin=jGpio.pin).first()
+    gpio = Gpio.query.filter_by(pin=pin).first()
     if not gpio:
         json_list=[{'message': 'Não há gpio com esse id'}]
         return jsonify(json_list), 404
     gpio.status=jGpio.status
     db.session.commit()
     return jsonify(gpio), 200
+
 
 @app.route("/camera/<int:id>", methods=['DELETE'])
 def remover_camera(id):
@@ -392,15 +396,18 @@ def remover_camera(id):
     db.session.commit()
     return jsonify({'message': 'Câmera removida'}), 200
 
-#########  fim da api rest #########
+#  -------fim da api rest------ #
+
 
 @app.route("/index")
 def index():
     return render_template("index.html")
 
+
 @app.route("/cadastrar")
 def cadastrar():
     return render_template("cadastro.html")
+
 
 @app.route("/lista")
 def lista():
@@ -413,6 +420,7 @@ def lista():
                            notificacoes=notificacoes,
                            gpios=gpios)
 
+
 @app.route("/cadastroUsuario",methods=['GET', 'POST'])
 def cadastroUsuario():
     if request.method == "POST":
@@ -420,42 +428,13 @@ def cadastroUsuario():
         password = request.form.get("password")
 
         if username and password:
-            hashed_password = generate_password_hash(data['password'],method='sha256')
-            new_user = User(public_id=str(uuid.uuid4()), username=data['username'], password=hashed_password, admin=False)
+            hashed_password = generate_password_hash(password,method='sha256')
+            new_user = User(public_id=str(uuid.uuid4()), username=username, password=hashed_password, admin=False)
             db.session.add(new_user)
             db.session.commit()
     return redirect(url_for("index"))
 
-'''
-@app.route("/excluirUsuario/<int:id>")
-def excluirUsuario(id):
-    usuario = Usuario.query.filter_by(_id=id).first()
-    db.session.delete(usuario)
-    db.session.commit()
 
-    return redirect(url_for("lista"))
-
-@app.route("/atualizarUsuario/<int:id>", methods=['GET', 'POST'])
-def atualizarUsuario(id):
-    usuario = Usuario.query.filter_by(_id=id).first()
-    if request.method == "POST":
-        nome = request.form.get("nome")
-        senha = request.form.get("senha")
-
-        if nome and senha:
-            usuario.nome = nome
-            usuario.senha_hash = generate_password_hash(senha)
-
-            db.session.commit()
-            return redirect(url_for("lista"))
-
-        if nome:
-            usuario.nome = nome
-            db.session.commit()
-            return redirect(url_for("lista"))
-
-    return render_template("atualizarUsuario.html", usuario=usuario)
-'''
 @app.route("/cadastroCamera",methods=['GET', 'POST'])
 def cadastroCamera():
     if request.method == "POST":
@@ -468,12 +447,12 @@ def cadastroCamera():
             db.session.commit()
     return redirect(url_for("index"))
 
+
 @app.route("/excluirCamera/<int:id>")
 def excluirCamera(id):
     camera = Camera.query.filter_by(_id=id).first()
     db.session.delete(camera)
     db.session.commit()
-
     return redirect(url_for("lista"))
 
 
@@ -493,6 +472,7 @@ def atualizarCamera(id):
 
     return render_template("atualizarCamera.html", camera=camera)
 
+
 @app.route("/cadastroNotificacao",methods=['GET', 'POST'])
 def cadastroNotificacao():
     if request.method == "POST":
@@ -504,6 +484,7 @@ def cadastroNotificacao():
             db.session.commit()
     return redirect(url_for("index"))
 
+
 @app.route("/excluirNotificacao/<int:id>")
 def excluirNotificacao(id):
     notificacao = Notificacao.query.filter_by(_id=id).first()
@@ -511,6 +492,7 @@ def excluirNotificacao(id):
     db.session.commit()
 
     return redirect(url_for("lista"))
+
 
 @app.route("/atualizarNotificacao/<int:id>", methods=['GET', 'POST'])
 def atualizarNotificacao(id):
@@ -525,6 +507,7 @@ def atualizarNotificacao(id):
             return redirect(url_for("lista"))
     return render_template("atualizarNotificacao.html", notificacao=notificacao)
 
+
 @app.route("/cadastroGpio",methods=['GET', 'POST'])
 def cadastroGpio():
     if request.method == "POST":
@@ -536,6 +519,7 @@ def cadastroGpio():
             db.session.commit()
     return redirect(url_for("index"))
 
+
 @app.route("/excluirGpio/<int:id>")
 def excluirGpio(id):
     gpio = Gpio.query.filter_by(_id=id).first()
@@ -543,6 +527,7 @@ def excluirGpio(id):
     db.session.commit()
 
     return redirect(url_for("lista"))
+
 
 @app.route("/atualizarGpio/<int:id>", methods=['GET', 'POST'])
 def atualizarGpio(id):
@@ -556,14 +541,47 @@ def atualizarGpio(id):
             return redirect(url_for("lista"))
 
     return render_template("atualizarGpio.html", gpio=gpio)
-@app.route("/imagem")
+
+@app.route("/logar", methods=['GET', 'POST'])
+def logar():
+    form = LoginForm()
+    if form.validate_on_submit():
+        pass
+    return render_template("login.html",form=form)
+
+@app.route("/resetar")
+def resetar():
+    return render_template("resetar.html")
+
+
+@app.route("/resetarForm", methods=['GET', 'POST'])
+def resetarForm():
+    userTeste = User.query.filter_by(username="admin").first()
+    if userTeste:
+        if request.method == "POST":
+            validar = check_password_hash(userTeste.password,request.form.get("password"))
+            if validar:
+                db.drop_all()
+                inicializar()
+                return redirect(url_for("index"))
+    return redirect(url_for("lista"))
+
+
+@app.route("/imagem", methods=['GET', 'POST'])
 def baixarImagem():
-    endereco='http://192.168.0.107:8080/shot.jpg'
-    with urllib.request.urlopen(endereco) as url:
-        with open('media/temp.jpg','wb') as f:
-            f.write(url.read())
+    # "rtsp://admin:guilima13@192.168.0.108:8800/live/ch00_0"
+    endereco="rtsp://192.168.0.101/"
+    if endereco.startswith('rtsp://'):
+        bashCommand = "ffmpeg -i {0} -f image2 /home/guilherme/campainha/campainha-virtual-api/media/temp.jpg -y".format(endereco)
+        subprocess.call(bashCommand,shell=True)
+    else:
+        # endereco = 'http://192.168.0.107:8080/shot.jpg'
+        with urllib.request.urlopen(endereco) as url:
+            with open('media/temp.jpg','wb') as f:
+                f.write(url.read())
     return send_from_directory('media/', 'temp.jpg')
 
-#remover debug e use_reloader para deploy
+
+# remover debug e use_reloader para deploy
 if __name__ == "__main__":
     app.run(host='0.0.0.0', debug=True,  use_reloader=True)
